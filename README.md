@@ -32,4 +32,4 @@
 
 HTML, CSS, JavaScript.
 
-[Репозиторий проекта](https://github.com/KokaKara222/posmotri-v-okno-ad)
+Репозиторий проекта:https://github.com/KokaKara222/posmotri-v-okno-ad
