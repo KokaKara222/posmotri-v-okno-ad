@@ -1,7 +1,7 @@
 /* КОНФИГ */
 const preloaderWaitindTime = 1200;
 const cardsOnPage = 5;
-const BASE_URL = 'https://v-content.practicum-team.ru';
+const BASE_URL = 'https://v-content.ffapi.ru';
 const endpoint = `${BASE_URL}/api/videos?pagination[pageSize]=${cardsOnPage}&`;
 
 /* ЭЛЕМЕНТЫ СТРАНИЦЫ */
@@ -47,9 +47,9 @@ form.onsubmit = (e) => {
 
   const formData = serializeFormData(form);
   const requestUrl = generateFilterRequest(
-    endpoint,
-    formData.city,
-    formData.timeArray
+      endpoint,
+      formData.city,
+      formData.timeArray
   );
 
   mainMechanics(requestUrl);
@@ -80,8 +80,8 @@ async function mainMechanics(endpoint) {
       posterUrl: data.results[0].poster.url,
     });
     document
-      .querySelectorAll('.content__card-link')[0]
-      .classList.add('content__card-link_current');
+        .querySelectorAll('.content__card-link')[0]
+        .classList.add('content__card-link_current');
     await waitForReadyVideo(videoElement);
     await delay(preloaderWaitindTime);
     removePreloader(videoContainer, '.preloader');
@@ -129,11 +129,23 @@ async function delay(ms) {
   });
 }
 
-// Промис, который резолвится, если видео целиком готово к проинрыванию без пауз
+// Firefox может приостановить загрузку после того, как видео готово к запуску.
 
 async function waitForReadyVideo(video) {
-  return await new Promise((resolve) => {
-    video.oncanplaythrough = resolve;
+  if (video.readyState >= HTMLMediaElement.HAVE_FUTURE_DATA) return;
+
+  return new Promise((resolve, reject) => {
+    const listeners = new AbortController();
+    const options = { signal: listeners.signal };
+
+    video.addEventListener('canplay', () => {
+      listeners.abort();
+      resolve();
+    }, options);
+    video.addEventListener('error', () => {
+      listeners.abort();
+      reject(new Error('Не удалось загрузить видео'));
+    }, options);
   });
 }
 
@@ -161,13 +173,13 @@ function appendCards({ baseUrl, dataArray, cardTmp, container }) {
     node.querySelector('a').setAttribute('id', el.id);
     node.querySelector('.content__video-card-title').textContent = el.city;
     node.querySelector('.content__video-card-description').textContent =
-      el.description;
+        el.description;
     node
-      .querySelector('.content__video-card-thumbnail')
-      .setAttribute('src', `${baseUrl}${el.thumbnail.url}`);
+        .querySelector('.content__video-card-thumbnail')
+        .setAttribute('src', `${baseUrl}${el.thumbnail.url}`);
     node
-      .querySelector('.content__video-card-thumbnail')
-      .setAttribute('alt', el.description);
+        .querySelector('.content__video-card-thumbnail')
+        .setAttribute('alt', el.description);
     container.append(node);
   });
   console.log('Сгенерировал карточки');
@@ -212,12 +224,12 @@ function generateFilterRequest(endpoint, city, timeArray) {
 
 // переключает текущее видео ✅
 function chooseCurrentVideo({
-  baseUrl,
-  videoData,
-  cardLinksSelector,
-  currentLinkClassName,
-  mainVideo,
-}) {
+                              baseUrl,
+                              videoData,
+                              cardLinksSelector,
+                              currentLinkClassName,
+                              mainVideo,
+                            }) {
   const cardsList = document.querySelectorAll(cardLinksSelector);
   if (cardsList) {
     cardsList.forEach((item) => {
@@ -227,9 +239,10 @@ function chooseCurrentVideo({
           item.classList.remove(currentLinkClassName);
         });
         item.classList.add(currentLinkClassName);
+        videoContainer.querySelector('.error')?.remove();
         showPreloader(preloaderTmp, videoContainer);
         const vidoObj = videoData.find(
-          (video) => String(video.id) === String(item.id)
+            (video) => String(video.id) === String(item.id)
         );
         setVideo({
           baseUrl,
@@ -237,10 +250,17 @@ function chooseCurrentVideo({
           videoUrl: vidoObj.video.url,
           posterUrl: vidoObj.poster.url,
         });
-        await waitForReadyVideo(mainVideo);
-        await delay(preloaderWaitindTime);
-        removePreloader(videoContainer, '.preloader');
-        console.log('Переключил видео');
+        try {
+          await waitForReadyVideo(mainVideo);
+          await delay(preloaderWaitindTime);
+          console.log('Переключил видео');
+        } catch (error) {
+          if (item.classList.contains(currentLinkClassName)) {
+            showError(videoContainer, videoNotFoundTmp, error.message);
+          }
+        } finally {
+          removePreloader(videoContainer, '.preloader');
+        }
       };
     });
   }
@@ -257,14 +277,14 @@ function showError(container, errorTemplate, errorMessage) {
 // вывожу больше видео, если в пагинации больше страниц, чем показано
 
 function showMoreCards({
-  dataArray,
-  buttonTemplate,
-  cardsList,
-  buttonSelector,
-  initialEndpoint,
-  baseUrl,
-  cardTmp,
-}) {
+                         dataArray,
+                         buttonTemplate,
+                         cardsList,
+                         buttonSelector,
+                         initialEndpoint,
+                         baseUrl,
+                         cardTmp,
+                       }) {
   if (dataArray.pagination.page === dataArray.pagination.pageCount) return;
   // добавить кнопку из темплейта в конец списка карточек
   const button = buttonTemplate.content.cloneNode(true);
